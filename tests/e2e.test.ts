@@ -92,6 +92,26 @@ describe('E2E - pipeline completo (lead -> qualificação -> WhatsApp -> SLA)', 
     expect(elapsed).toBeLessThan(120);
   });
 
+  it('sobrevive a falhas reais (HTTP 500) da API falsa e envia sem duplicar', async () => {
+    // Este teste NÃO usa mocks: faz chamadas HTTP de verdade contra a API falsa do
+    // WhatsApp, forçando exatamente 2 respostas 500 (o mesmo `SIMULATED_WHATSAPP_FAILURE`
+    // que a falha aleatória de ~20% produziria) antes da 3ª tentativa suceder de verdade.
+    // Prova, ponta a ponta, que "falha e tenta de novo" nunca produz uma segunda mensagem.
+    const lead = repo.create({ ...QUALIFIED_LEAD, id: 'e2e-real-500-retry', criado_em: new Date().toISOString() });
+    processor.sweepQualification();
+    const qualified = repo.getById(lead.id)!;
+
+    fakeWhatsapp.state.forcedFailures = 2; // as 2 primeiras chamadas HTTP recebem 500 de verdade
+
+    const sent = await processor.sendForLead(qualified);
+
+    expect(sent.whatsapp_status).toBe('enviado');
+    expect(sent.tentativas_envio).toBe(3); // 2 falhas reais + 1 sucesso real
+    expect(sent.ultimo_erro).toBeNull();
+    expect(repo.countMessagesForLead(lead.id)).toBe(1); // nenhuma duplicidade apesar das falhas
+    expect(fakeWhatsapp.state.forcedFailures).toBe(0); // confirma que as 2 falhas realmente aconteceram
+  }, 15_000);
+
   it('não duplica mensagem ao reprocessar o mesmo lead já enviado', async () => {
     const lead = repo.create({ ...QUALIFIED_LEAD, id: 'e2e-dup', criado_em: new Date().toISOString() });
     processor.sweepQualification();
