@@ -352,7 +352,9 @@
     all: () => true,
     draft: (l) => l.status === 'draft',
     new: (l) => l.status === 'new',
-    qualificado: (l) => l.status === 'qualificado' || l.status === 'processando',
+    // Total já qualificado (mesmo critério do /metrics), não só quem está "parado" nesse
+    // estado agora — o pipeline costuma passar por aqui rápido demais pra pegar ao vivo.
+    qualificado: (l) => l.qualificado_em !== null,
     enviado: (l) => l.status === 'enviado',
     erro: (l) => l.status === 'erro',
   };
