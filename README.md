@@ -146,16 +146,24 @@ prazo de 120s — o que é o comportamento esperado, não um bug).
 ## Testes e evidência real
 
 ```bash
-npm run test   # 20 testes: qualificação, retry, 2 camadas de idempotência, e2e completo
+npm run test   # 27 testes: dataset gerado, qualificação, retry, idempotência (2 camadas), e2e
 npm run demo   # fluxo real de ponta a ponta
 ```
 
-Destaque: **"sobrevive a falhas reais (HTTP 500) da API falsa e envia sem duplicar"**
-([tests/e2e.test.ts](tests/e2e.test.ts)) não usa mocks — força 2 respostas `500` de verdade
-pela API falsa (via HTTP real), deixa a 3ª tentativa suceder de verdade, e confirma que
-`messages` tem exatamente **1** linha para o lead. É a prova direta de que "falhar e tentar
-de novo" nunca duplica mensagem, usando o mesmo contrato de erro (`SIMULATED_WHATSAPP_FAILURE`,
-HTTP 500) que a falha aleatória de ~20% produz em produção.
+Dois destaques que provam, de forma automatizada (não só "de olho" no demo), os pontos mais
+sensíveis do desafio:
+
+- **[tests/seed-data.test.ts](tests/seed-data.test.ts)** — roda a regra de qualificação
+  contra os 40 leads *de verdade* gerados pelo seed (não contra exemplos avulsos) e confirma:
+  nenhum lead com score < 50 qualifica; leads júnior/estagiário com score alto (Felipe
+  Araújo, score 89; Natália Barros, score 91) continuam **não** qualificando; decisores com
+  score alto e empresa relevante qualificam; e a proporção final bate com os 16
+  qualificados / 20 rejeitados documentados acima.
+- **[tests/e2e.test.ts](tests/e2e.test.ts) — "sobrevive a falhas reais (HTTP 500)"** — não
+  usa mocks: força 2 respostas `500` de verdade pela API falsa (via HTTP real, o mesmo
+  contrato de erro que a falha aleatória de ~20% produz), deixa a 3ª tentativa suceder de
+  verdade, e confirma que `messages` tem exatamente **1** linha para o lead — prova direta
+  de que falhar e tentar de novo nunca duplica mensagem.
 
 Trecho real de uma execução do `npm run demo` (não é log fabricado — os timestamps e IDs
 são de uma corrida real):
