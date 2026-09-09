@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lead → WhatsApp Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #111827;
+    --panel-2: #1a2333;
+    --border: #263041;
+    --text: #e5e9f0;
+    --muted: #8b97ab;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+  header h1 {
+    font-size: 18px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .live-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(34,197,94,0.7);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+    70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  }
+  .subtitle { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  main { padding: 24px; max-width: 1280px; margin: 0 auto; }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .metric-card .value { font-size: 22px; font-weight: 700; }
+  .metric-card .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+  .metric-card.pass .value { color: var(--green); }
+  .metric-card.fail .value { color: var(--red); }
+  .metric-card.pending .value { color: var(--yellow); }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .panel-header h2 { font-size: 14px; margin: 0; }
+  .panel-body { padding: 18px; }
+  .panel-body.collapsed { display: none; }
+  .chevron { transition: transform .15s; color: var(--muted); }
+  .chevron.open { transform: rotate(90deg); }
+
+  form.lead-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: var(--muted); }
+  .field input, .field select {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .field input:focus, .field select:focus { outline: 1px solid var(--blue); }
+  .form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
+  button {
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .form-msg { font-size: 12px; color: var(--muted); }
+  .form-msg.ok { color: var(--green); }
+  .form-msg.err { color: var(--red); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+  tbody tr:hover { background: var(--panel-2); }
+  tbody tr.flash { animation: flash 1.2s ease-out; }
+  @keyframes flash { from { background: rgba(59,130,246,0.25); } to { background: transparent; } }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.draft { background: #374151; color: #d1d5db; }
+  .badge.new { background: #1e3a8a; color: #93c5fd; }
+  .badge.qualificado { background: #713f12; color: #fde047; }
+  .badge.processando { background: #3730a3; color: #c7d2fe; }
+  .badge.enviado { background: #14532d; color: #86efac; }
+  .badge.erro { background: #7f1d1d; color: #fca5a5; }
+
+  .wa-badge.not_applicable { color: var(--muted); }
+  .wa-badge.pending { color: var(--yellow); }
+  .wa-badge.retrying { color: #fb923c; }
+  .wa-badge.enviado { color: var(--green); }
+  .wa-badge.erro { color: var(--red); }
+
+  .sla-tag { font-weight: 700; }
+  .sla-tag.pass { color: var(--green); }
+  .sla-tag.fail { color: var(--red); }
+  .sla-tag.wait { color: var(--muted); }
+
+  .table-wrap { overflow-x: auto; }
+  .empty-state { color: var(--muted); padding: 20px; text-align: center; }
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters button {
+    background: var(--panel-2);
+    color: var(--muted);
+    font-weight: 500;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+  }
+  .filters button.active { background: var(--blue); color: white; border-color: var(--blue); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1><span class="live-dot"></span> Lead → WhatsApp Dashboard</h1>
+    <div class="subtitle">Atualiza automaticamente a cada 2s · worker de polling roda a cada 5s no backend</div>
+  </div>
+  <div class="subtitle" id="last-updated">—</div>
+</header>
+
+<main>
+
+  <div class="metrics-grid" id="metrics-grid"></div>
+
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('form-panel')">
+      <h2>Criar novo lead</h2>
+      <span class="chevron open" id="form-panel-chevron">▸</span>
+    </div>
+    <div class="panel-body" id="form-panel">
+      <form class="lead-form" id="lead-form">
+        <div class="field">
+          <label>Nome</label>
+          <input name="nome" required placeholder="João Silva" />
+        </div>
+        <div class="field">
+          <label>Telefone (10-15 dígitos)</label>
+          <input name="telefone" required placeholder="5511987654321" pattern="\d{10,15}" />
+        </div>
+        <div class="field">
+          <label>Empresa</label>
+          <input name="empresa" required placeholder="Acme Corp" />
+        </div>
+        <div class="field">
+          <label>Cargo</label>
+          <input name="cargo" required placeholder="CEO" />
+        </div>
+        <div class="field">
+          <label>Faturamento anual</label>
+          <select name="faturamento_anual">
+            <option value="<500K">&lt; 500K</option>
+            <option value="500K-1M">500K - 1M</option>
+            <option value="1M-5M" selected>1M - 5M</option>
+            <option value="5M-20M">5M - 20M</option>
+            <option value="20M+">20M+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Nº de funcionários</label>
+          <select name="numero_de_funcionarios">
+            <option value="1-10">1-10</option>
+            <option value="11-50">11-50</option>
+            <option value="51-200" selected>51-200</option>
+            <option value="201-500">201-500</option>
+            <option value="500+">500+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Score (0-100)</label>
+          <input name="score" type="number" min="0" max="100" required value="85" />
+        </div>
+        <div class="field">
+          <label>Status inicial</label>
+          <select name="status">
+            <option value="new" selected>new (entra no funil)</option>
+            <option value="draft">draft (fora do funil)</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="submit" id="submit-btn">Criar lead</button>
+          <span class="form-msg" id="form-msg"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('leads-panel')">
+      <h2>Leads (<span id="leads-count">0</span>)</h2>
+      <span class="chevron open" id="leads-panel-chevron">▸</span>
+    </div>
+    <div class="panel-body" id="leads-panel">
+      <div class="filters" id="filters"></div>
+      <div class="table-wrap">
+        <table id="leads-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Empresa / Cargo</th>
+              <th>Score</th>
+              <th>Status</th>
+              <th>WhatsApp</th>
+              <th>Tentativas</th>
+              <th>SLA</th>
+              <th>Qualificado em</th>
+              <th>Erro</th>
+            </tr>
+          </thead>
+          <tbody id="leads-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="empty-state" style="display:none">Nenhum lead ainda. Crie um acima ou rode <code>npm run seed</code>.</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const POLL_MS = 2000;
+  const SLA_SECONDS = 120;
+  let currentFilter = 'all';
+  let knownLeadIds = new Set();
+  let panelsCollapsed = {};
+
+  function togglePanel(id) {
+    const body = document.getElementById(id);
+    const chevron = document.getElementById(id + '-chevron');
+    panelsCollapsed[id] = !panelsCollapsed[id];
+    body.classList.toggle('collapsed', panelsCollapsed[id]);
+    chevron.classList.toggle('open', !panelsCollapsed[id]);
+  }
+
+  function maskPhone(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (digits.length <= 10) return '*'.repeat(digits.length);
+    return digits.slice(0, 6) + '****' + digits.slice(-4);
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleTimeString('pt-BR');
+  }
+
+  function elapsedSince(iso) {
+    return (Date.now() - new Date(iso).getTime()) / 1000;
+  }
+
+  function slaCell(lead) {
+    if (!lead.qualificado_em) return '<span class="sla-tag wait">—</span>';
+    if (lead.whatsapp_status === 'enviado' && lead.enviado_em) {
+      const elapsed = (new Date(lead.enviado_em).getTime() - new Date(lead.qualificado_em).getTime()) / 1000;
+      const pass = elapsed < SLA_SECONDS;
+      return '<span class="sla-tag ' + (pass ? 'pass">PASS' : 'fail">FAIL') + ' (' + elapsed.toFixed(1) + 's)</span>';
+    }
+    const elapsed = elapsedSince(lead.qualificado_em);
+    if (elapsed >= SLA_SECONDS) {
+      return '<span class="sla-tag fail">ESTOURADO (' + elapsed.toFixed(0) + 's)</span>';
+    }
+    return '<span class="sla-tag wait">aguardando (' + elapsed.toFixed(0) + 's / ' + SLA_SECONDS + 's)</span>';
+  }
+
+  function renderMetrics(m) {
+    const cards = [
+      { label: 'Total de leads', value: m.total_leads },
+      { label: 'Qualificados', value: m.qualified },
+      { label: 'Rejeitados', value: m.rejected },
+      { label: 'Aguard. qualificação', value: m.pending_qualification, cls: 'pending' },
+      { label: 'Mensagens enviadas', value: m.messages_sent, cls: 'pass' },
+      { label: 'Pendentes / retry', value: m.messages_pending, cls: 'pending' },
+      { label: 'Dead-letter (erro)', value: m.messages_failed, cls: 'fail' },
+      { label: 'SLA PASS', value: m.sla_pass, cls: 'pass' },
+      { label: 'SLA FAIL', value: m.sla_fail, cls: m.sla_fail > 0 ? 'fail' : '' },
+      { label: 'Tempo médio envio (s)', value: m.average_delivery_seconds },
+    ];
+    document.getElementById('metrics-grid').innerHTML = cards.map(c =>
+      '<div class="metric-card ' + (c.cls || '') + '"><div class="value">' + c.value + '</div><div class="label">' + c.label + '</div></div>'
+    ).join('');
+  }
+
+  const FILTERS = {
+    all: () => true,
+    draft: (l) => l.status === 'draft',
+    new: (l) => l.status === 'new',
+    qualificado: (l) => l.status === 'qualificado' || l.status === 'processando',
+    enviado: (l) => l.status === 'enviado',
+    erro: (l) => l.status === 'erro',
+  };
+
+  function renderFilters(leads) {
+    const counts = { all: leads.length };
+    for (const key of Object.keys(FILTERS)) {
+      if (key !== 'all') counts[key] = leads.filter(FILTERS[key]).length;
+    }
+    const labels = { all: 'Todos', draft: 'Draft', new: 'Novos', qualificado: 'Qualificados', enviado: 'Enviados', erro: 'Erro' };
+    document.getElementById('filters').innerHTML = Object.keys(FILTERS).map(key =>
+      '<button data-filter="' + key + '" class="' + (currentFilter === key ? 'active' : '') + '">' +
+      labels[key] + ' (' + counts[key] + ')</button>'
+    ).join('');
+    document.querySelectorAll('#filters button').forEach(btn => {
+      btn.onclick = () => { currentFilter = btn.dataset.filter; renderAll(lastData); };
+    });
+  }
+
+  function renderLeadsTable(leads) {
+    const sorted = [...leads].sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em));
+    const filtered = sorted.filter(FILTERS[currentFilter] || FILTERS.all);
+    document.getElementById('leads-count').textContent = leads.length;
+    document.getElementById('empty-state').style.display = filtered.length ? 'none' : 'block';
+
+    const rows = filtered.map(lead => {
+      const isNew = !knownLeadIds.has(lead.id + ':' + lead.status + ':' + lead.whatsapp_status);
+      return '<tr class="' + (isNew ? 'flash' : '') + '">' +
+        '<td>' + escapeHtml(lead.nome) + '<div class="mono">' + maskPhone(lead.telefone) + '</div></td>' +
+        '<td>' + escapeHtml(lead.empresa) + '<div class="mono">' + escapeHtml(lead.cargo) + '</div></td>' +
+        '<td>' + lead.score + '</td>' +
+        '<td><span class="badge ' + lead.status + '">' + lead.status + '</span></td>' +
+        '<td><span class="wa-badge ' + lead.whatsapp_status + '">' + lead.whatsapp_status + '</span></td>' +
+        '<td>' + lead.tentativas_envio + '</td>' +
+        '<td>' + slaCell(lead) + '</td>' +
+        '<td class="mono">' + fmtTime(lead.qualificado_em) + '</td>' +
+        '<td class="mono">' + (lead.ultimo_erro ? escapeHtml(lead.ultimo_erro) : '—') + '</td>' +
+      '</tr>';
+    });
+
+    document.getElementById('leads-tbody').innerHTML = rows.join('');
+    knownLeadIds = new Set(leads.map(l => l.id + ':' + l.status + ':' + l.whatsapp_status));
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  let lastData = { metrics: null, leads: [] };
+
+  function renderAll(data) {
+    if (!data) return;
+    lastData = data;
+    if (data.metrics) renderMetrics(data.metrics);
+    if (data.leads) {
+      renderFilters(data.leads);
+      renderLeadsTable(data.leads);
+    }
+  }
+
+  async function poll() {
+    try {
+      const [metricsRes, leadsRes] = await Promise.all([
+        fetch('/metrics').then(r => r.json()),
+        fetch('/leads').then(r => r.json()),
+      ]);
+      renderAll({ metrics: metricsRes, leads: leadsRes });
+      document.getElementById('last-updated').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+    } catch (err) {
+      document.getElementById('last-updated').textContent = 'Erro ao atualizar: ' + err.message;
+    }
+  }
+
+  document.getElementById('lead-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('submit-btn');
+    const msg = document.getElementById('form-msg');
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.score = Number(data.score);
+
+    btn.disabled = true;
+    msg.textContent = 'Enviando...';
+    msg.className = 'form-msg';
+
+    try {
+      const res = await fetch('/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Erro ao criar lead');
+      msg.textContent = 'Lead criado! Aguardando o worker qualificar (até 5s)...';
+      msg.className = 'form-msg ok';
+      form.reset();
+      form.querySelector('[name="faturamento_anual"]').value = '1M-5M';
+      form.querySelector('[name="numero_de_funcionarios"]').value = '51-200';
+      form.querySelector('[name="score"]').value = 85;
+      poll();
+    } catch (err) {
+      msg.textContent = err.message;
+      msg.className = 'form-msg err';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  poll();
+  setInterval(poll, POLL_MS);
+</script>
+
+</body>
+</html>
